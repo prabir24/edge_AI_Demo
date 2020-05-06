@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Burgler Alarm</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" />
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"
+        type="text/javascript"></script>
+
+    <!-- materialize icons, css & js -->
+    <link type="text/css" href="/css/styles.css" rel="stylesheet" />
+
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#FFE1C4">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #e3f2fd;">
+        <div id="mySidenav" class="sidenav">
+            <a href="javascript:void(0)" class="closebtn" onclick="closeNav()">&times;</a>
+            <a href="#">About</a>
+            <a href="#">Services</a>
+            <a href="#">Clients</a>
+            <a href="#">Contact</a>
+        </div>
+        <span style="font-size:30px;cursor:pointer" onclick="openNav()">&#9776;</span>
+        <a class="navbar-brand" href="#">Burgler Alarm</a>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarSupportedContent">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item active">
+                    <a class="nav-link" href="index.html">Home <span class="sr-only">(current)</span></a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="pages/page1.html">Play/Stop Music</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
+                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Dropdown
+                    </a>
+                    <div class="dropdown-menu" aria-labelledby="navbarDropdown">
+                        <a class="dropdown-item" href="#">Action 1</a>
+                        <a class="dropdown-item" href="#">Action 2</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#">Action 3</a>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link disabled" href="#">Disabled</a>
+                </li>
+            </ul>
+            <form class="form-inline my-2 my-lg-0">
+                <input class="form-control mr-sm-2" type="search" placeholder="Search" aria-label="Search">
+                <button class="btn btn-outline-success my-2 my-sm-0" type="submit">Search</button>
+            </form>
+        </div>
+    </nav>
+    <div class="container p-3 my-3 border">
+        <div class="row">
+            <div class="col-sm-4">
+                <label id="wb"><u>Webcam</u></label>
+                <div id="my_camera"></div>
+                <input id="snap_btn" type="button" value="Take Snapshot" onClick="take_snapshot()" />
+            </div>
+            <div class="col-sm-4">
+                <label id="wb"><u>Image Preview</u></label>
+                <div id="results"></div>
+            </div>
+            <div class="col-sm-4">
+                <label id="wb"><u>JSON</u></label>
+                <div id="json_results"></div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <script type="text/javascript" src="js/webcam.min.js"></script>
+    <script language="JavaScript">
+        function openNav() {
+            document.getElementById("mySidenav").style.width = "250px";
+        }
+
+        function closeNav() {
+            document.getElementById("mySidenav").style.width = "0";
+        }
+        function take_snapshot() {
+            // take snapshot and get image data
+            Webcam.snap(function (data_uri) {
+                publish(myTopic_2, data_uri);
+            });
+        }
+
+        Webcam.set({
+            width: 340,
+            height: 340,
+            image_format: "jpeg",
+            jpeg_quality: 90,
+        });
+        Webcam.attach("#my_camera");
+
+
+        function speak(text) {
+            speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        }
+
+        let count = 0;
+        function onConnect() {
+            console.log("connection successful");
+            client.subscribe(myTopicReply_img_2);
+            client.subscribe(myTopicReply_json_2); //subscribe to our topic
+            setInterval(() => {
+                take_snapshot()
+            }, 7000)   // publish count every 5s
+        }
+
+        const publish = (topic, msg) => {
+            //takes topic and message string
+            console.log("publish");
+            let message = new Paho.MQTT.Message(msg);
+            message.destinationName = topic;
+            client.send(message);
+        };
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("onConnectionLost:" + responseObject.errorMessage);
+            }
+            client.connect({ onSuccess: onConnect });
+        }
+
+        function onMessageArrived(message) {
+            console.log(
+                "Got message on topic " +
+                message.destinationName +
+                " with payload: " +
+                message.payloadString
+            );
+            if (message.destinationName == "kth/dm2518/reply/yolo2/pkch/imgb64") {
+                let el = document.getElementById("results");
+                el.innerHTML = '<img src="' + message.payloadString + '"/>';
+            }
+            if (message.destinationName == "kth/dm2518/reply/yolo2/pkch/json") {
+                var arr = message.payloadString;
+                let el = document.getElementById("json_results");
+                el.innerHTML = arr;
+                console.log(arr);
+                if (arr.search("person") != -1) {
+                    speak("Intruder Alert");
+                }
+            }
+        }
+
+        const client = new Paho.MQTT.Client(
+            "ws://test.mosquitto.org:8080/mqtt",
+            "pkch" + new Date().getTime()
+        );
+
+        const myTopic_2 = "kth/dm2518/yolo2/pkch/imgb64";
+        const myTopicReply_img_2 = "kth/dm2518/reply/yolo2/pkch/imgb64";
+        const myTopicReply_json_2 = "kth/dm2518/reply/yolo2/pkch/json";
+        
+        client.onMessageArrived = onMessageArrived;
+        client.onConnectionLost = onConnectionLost;
+        client.connect({ onSuccess: onConnect });
+    </script>
+
+    <script src="/js/app.js"></script>
+</body>
+
+</html>
